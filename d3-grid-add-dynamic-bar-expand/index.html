@@ -1,0 +1,102 @@
+<html>
+	<head>
+		<script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+		<script>
+
+			function setStyle(lineObj, axiscoorddata) {
+				 lineObj.style("stroke", function (d, i) { 
+				  	if(!i || axiscoorddata.length-1 == i)
+				  		return "#fff";
+				  	else 
+				  		return "#ebebe0"; 
+				  })
+				  .style("stroke-width", 1);
+			}
+
+			function getLineObj(gridGraph, axiscoorddata, type){
+				return gridGraph.selectAll("line."+type)
+				  .data(axiscoorddata)
+				  .enter()
+				  .append("line")
+
+			}
+
+			function createXLine(gridGraph, config) {
+				var xaxiscoorddata = d3.range(config.spacing, config.width, config.spacing);
+
+				var lineObj = getLineObj(gridGraph, xaxiscoorddata, 'vertical');
+
+				  lineObj.attr("x1", function(d){return d;})
+				  .attr("y1", config.spacing)
+				  .attr("x2", function(d){return d;})
+				  .attr("y2", config.height-config.spacing);
+
+				  setStyle(lineObj, xaxiscoorddata);
+			}
+
+			function createYLine(gridGraph, config){
+				var yaxiscoorddata = d3.range(config.spacing, config.height, config.spacing);
+
+				var lineObj = getLineObj(gridGraph, yaxiscoorddata, 'horizontal');
+
+				  lineObj.attr("x1", config.spacing)
+				  .attr("y1", function(d){return d;})
+				  .attr("x2", config.width-config.spacing)
+				  .attr("y2", function(d){return d;});
+
+				  setStyle(lineObj, yaxiscoorddata);
+			}
+
+			function createAddChartButton(addNewBarObj, width, height){
+				addNewBarObj.append('circle')
+						.attr('cx', width - (5/100*width))
+						.attr('cy', height/2)
+						.attr('r', 20)
+						.attr('fill', "#129793");
+
+					addNewBarObj.append("line")
+							.attr("x1", width - (5/100*width))
+							.attr("y1", height/2 -10)
+							.attr("x2", width - (5/100*width))
+							.attr("y2", height/2 + 10)
+							.style('stroke',  '#fff')
+							.attr('stroke-width',2);
+
+
+				    addNewBarObj.append("line")
+							.attr("x1", width - (5/100*width) - 10)
+							.attr("y1", height/2)
+							.attr("x2", width - (5/100*width) + 10)
+							.attr("y2", height/2)
+							.style('stroke',  '#fff')
+							.attr('stroke-width',2);
+			}
+
+			window.onload = function drawChart(){
+				var width = 700, height = 400;
+
+				var gridGraph = d3.select("#d3grid")
+				    .append("svg")
+				    .attr("width", width)    
+				    .attr("height", height); 
+				
+				var configData = {'width':width, 'height':height, 'spacing':5};
+
+				createXLine(gridGraph, configData);
+				createYLine(gridGraph, configData);
+
+				var addNewBar = gridGraph.append('g')
+					.on("click", function(d) { alert("hello"); });;
+				createAddChartButton(addNewBar, width, height)
+					
+
+				
+			}
+
+		</script>
+	</head>
+	<body>
+		<div id="d3grid"></div>
+	</body>
+
+</html>
