@@ -2,8 +2,12 @@
 	<head>
 		<script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 		<script>
+			var barWidth = 100, barHeight = 100;
+			var leftMargin = 30, bottomMargin = 50;
+			var gridGraph;
+			var width = 700, height = 400;
 
-			function setStyle(lineObj, axiscoorddata) {
+			function setGridLineStyle(lineObj, axiscoorddata) {
 				 lineObj.style("stroke", function (d, i) { 
 				  	if(!i || axiscoorddata.length-1 == i)
 				  		return "#fff";
@@ -13,84 +17,240 @@
 				  .style("stroke-width", 1);
 			}
 
-			function getLineObj(gridGraph, axiscoorddata, type){
+			function getGridLineObj(gridGraph, axiscoorddata, type){
 				return gridGraph.selectAll("line."+type)
 				  .data(axiscoorddata)
 				  .enter()
-				  .append("line")
-
+				  .append("line");
 			}
 
 			function createXLine(gridGraph, config) {
 				var xaxiscoorddata = d3.range(config.spacing, config.width, config.spacing);
 
-				var lineObj = getLineObj(gridGraph, xaxiscoorddata, 'vertical');
+				var lineObj = getGridLineObj(gridGraph, xaxiscoorddata, 'vertical');
 
-				  lineObj.attr("x1", function(d){return d;})
+				lineObj.attr("x1", function(d){return d;})
 				  .attr("y1", config.spacing)
 				  .attr("x2", function(d){return d;})
 				  .attr("y2", config.height-config.spacing);
 
-				  setStyle(lineObj, xaxiscoorddata);
+				setGridLineStyle(lineObj, xaxiscoorddata);
 			}
 
 			function createYLine(gridGraph, config){
 				var yaxiscoorddata = d3.range(config.spacing, config.height, config.spacing);
 
-				var lineObj = getLineObj(gridGraph, yaxiscoorddata, 'horizontal');
+				var lineObj = getGridLineObj(gridGraph, yaxiscoorddata, 'horizontal');
 
 				  lineObj.attr("x1", config.spacing)
 				  .attr("y1", function(d){return d;})
 				  .attr("x2", config.width-config.spacing)
 				  .attr("y2", function(d){return d;});
 
-				  setStyle(lineObj, yaxiscoorddata);
+				setGridLineStyle(lineObj, yaxiscoorddata);
 			}
 
-			function createAddChartButton(addNewBarObj, width, height){
+			function getXPercentOfY(x, y){
+				return (x/100*y);
+			}
+
+			function addPlusSign(addNewBarObj, config) {
+				var fivePercentOfWidth = getXPercentOfY(5, config.width)
+				var circleMargin = 10;
+
+				addNewBarObj.append("line")
+					.attr("x1", config.width - fivePercentOfWidth)
+					.attr("y1", config.height/2 - circleMargin)
+					.attr("x2", config.width - fivePercentOfWidth)
+					.attr("y2", config.height/2 + circleMargin)
+					.style('stroke',  '#fff')
+					.attr('stroke-width',2);
+
+
+			    addNewBarObj.append("line")
+					.attr("x1", config.width - fivePercentOfWidth - circleMargin)
+					.attr("y1", config.height/2)
+					.attr("x2", config.width - fivePercentOfWidth + circleMargin)
+					.attr("y2", config.height/2)
+					.style('stroke',  '#fff')
+					.attr('stroke-width',2);
+			}
+
+			function createAddChartButton(gridGraph, config){
+				var addNewBarObj = gridGraph.append('g')
+					.on("click", function(d) { alert("hello"); });
+
+				var fivePercentOfWidth = getXPercentOfY(5, config.width)
+
 				addNewBarObj.append('circle')
-						.attr('cx', width - (5/100*width))
-						.attr('cy', height/2)
+						.attr('cx', config.width - fivePercentOfWidth)
+						.attr('cy', config.height/2)
 						.attr('r', 20)
 						.attr('fill', "#129793");
 
-					addNewBarObj.append("line")
-							.attr("x1", width - (5/100*width))
-							.attr("y1", height/2 -10)
-							.attr("x2", width - (5/100*width))
-							.attr("y2", height/2 + 10)
-							.style('stroke',  '#fff')
-							.attr('stroke-width',2);
+				addPlusSign(addNewBarObj, config)
+			}
+			
+			function addBarChart(gridGraph, config){
+
+				var barsGroup = gridGraph.append('g');
+				
+				barsGroup.append('rect')
+					.attr('x', leftMargin)
+					.attr('y', config.height-bottomMargin-barHeight)
+					.attr('width', barWidth)
+					.attr('height', barHeight)
+					.attr('fill', "#015C65")
+					.attr('opacity', "0.3");
+				
+				barsGroup.append("text")
+					.attr('x', leftMargin+barWidth/2)
+					.attr('y', config.height - bottomMargin-barHeight/2)
+					.attr("font-family", "sans-serif")
+				    .attr("font-size", "12px")
+				    .attr("font-weight", "bold")
+				    .attr("fill", "white")
+					.attr("text-anchor", "middle")
+      				.text("-30%");
 
 
-				    addNewBarObj.append("line")
-							.attr("x1", width - (5/100*width) - 10)
-							.attr("y1", height/2)
-							.attr("x2", width - (5/100*width) + 10)
-							.attr("y2", height/2)
-							.style('stroke',  '#fff')
-							.attr('stroke-width',2);
+      			var dragTopPointGroup = barsGroup.append("g");
+      			createDragPoint(dragTopPointGroup, leftMargin+barWidth/2, config.height-bottomMargin-barHeight, 'top');
+
+      			var dragRightPointGroup = barsGroup.append("g");
+      			createDragPoint(dragRightPointGroup, leftMargin+barWidth, config.height-bottomMargin, 'right');
+
 			}
 
-			window.onload = function drawChart(){
-				var width = 700, height = 400;
+			
 
-				var gridGraph = d3.select("#d3grid")
+			function createDragPoint(barsGroup, x, y, type) {
+
+				function topDragResize(d) {
+					
+ 					var oldCoords = d3.select(this).datum();
+ 					var newTopDraggerYPosition = oldCoords.y - (oldCoords.y - d3.event.y) < 15 ? 15 : (oldCoords.y - (oldCoords.y - d3.event.y) > height-bottomMargin ? height-bottomMargin : oldCoords.y - (oldCoords.y - d3.event.y))
+
+ 					d3.select(this).attr('transform', "translate("+oldCoords.x+", "+(newTopDraggerYPosition)+")")
+ 					.data({'x':oldCoords.x, 'y':newTopDraggerYPosition});
+			      	
+			      	var rect = d3.select(this.parentNode).select('rect');
+			      	var rectHeight = height-bottomMargin - newTopDraggerYPosition;
+
+			      	rect.attr('y', newTopDraggerYPosition)
+			      	.attr('height', rectHeight);
+
+			      	var text = d3.select(this.parentNode).select('text');
+			      	text.attr('y', height-bottomMargin - rectHeight/2);
+				}
+
+				function rightDragResize(d) {
+					
+ 					var oldCoords = d3.select(this).datum();
+ 					var tenPercentOfWidth = getXPercentOfY(10, width);
+ 					
+ 					var newRightDraggerXPosition = (d3.event.x < leftMargin) ? leftMargin : (d3.event.x > width-tenPercentOfWidth ? width-tenPercentOfWidth : d3.event.x );
+
+ 					d3.select(this).attr('transform', "translate("+ newRightDraggerXPosition+", "+(oldCoords.y)+")")
+			        .data([{"x":newRightDraggerXPosition, "y":oldCoords.y}]);
+
+
+
+			        
+			        var rect = d3.select(this.parentNode).select('rect');
+			      	rect.attr('width', (newRightDraggerXPosition - rect.attr('x')));
+
+
+
+			      	var prevCoords = d3.select(this.previousSibling).datum();
+			      	var rectX =  parseInt(rect.attr('x'));
+			      	var newTopDraggerXPosition = (newRightDraggerXPosition -rectX)/2 + rectX;
+
+			      	d3.select(this.previousSibling)
+			        .attr('transform', "translate("+ (newTopDraggerXPosition)+", "+(prevCoords.y)+")")
+			        .data([{"x":(newTopDraggerXPosition), "y":prevCoords.y}]);
+
+
+
+
+			        var text = d3.select(this.parentNode).select('text');
+			      	text.attr('x', newTopDraggerXPosition)
+
+				}
+
+				var dragTop = d3.behavior.drag()
+					.origin(function() { 
+			            var t = d3.select(this);
+            			return {x: d3.transform(t.attr("transform")).translate[0],
+                    			y: d3.transform(t.attr("transform")).translate[1]};
+			        })
+				    .on("drag", topDragResize);
+
+				var dragLeft = d3.behavior.drag()
+					.origin(function() { 
+			            var t = d3.select(this);
+            			return {x: d3.transform(t.attr("transform")).translate[0],
+                    			y: d3.transform(t.attr("transform")).translate[1]};
+			        })
+				    .on("drag", rightDragResize);
+
+				barsGroup.attr('transform', "translate("+x+","+(y)+")")
+				.data([{"x":x,"y":y}])
+				.call(type == 'top' ? dragTop : dragLeft);
+
+				barsGroup.append("circle")
+	      				.attr('cx', 0)
+						.attr('cy', 0)
+						.attr('r', 15)
+						.attr('fill', "#129793")
+						.attr("cursor", (type == 'top' ? "n-resize" : 'e-resize'));
+						
+					var arc = d3.svg.symbol().type('triangle-up')
+							.size(40);
+
+					var dragPointTransform = type == 'top' ? "translate(0, "+(-6)+")" : "translate("+(-6)+", 0) rotate(-90)";
+					barsGroup.append('path')
+						.attr('d', arc)
+						.attr('fill', "#fff")
+						.attr('stroke','#fff')
+						.attr('stroke-width', 1)
+						.attr('transform', dragPointTransform)
+						.attr("cursor", (type == 'top' ? "n-resize" : 'e-resize'));
+
+
+					var arc = d3.svg.symbol().type('triangle-down')
+							.size(40);
+
+					dragPointTransform = type == 'top' ? "translate(0, "+(6)+")" : "translate("+(6)+", 0) rotate(-90)";
+					barsGroup.append('path')
+						.attr('d', arc)
+						.attr('fill', "#fff")
+						.attr('stroke','#fff')
+						.attr('stroke-width', 1)
+						.attr('transform', dragPointTransform)
+						.attr("cursor", (type == 'top' ? "n-resize" : 'e-resize'));
+
+			}
+			
+
+			window.onload = function drawChart(){
+				
+				 gridGraph = d3.select("#d3grid")
 				    .append("svg")
 				    .attr("width", width)    
 				    .attr("height", height); 
 				
 				var configData = {'width':width, 'height':height, 'spacing':5};
 
-				createXLine(gridGraph, configData);
-				createYLine(gridGraph, configData);
+				var gridGroup = gridGraph.append('g')
 
-				var addNewBar = gridGraph.append('g')
-					.on("click", function(d) { alert("hello"); });;
-				createAddChartButton(addNewBar, width, height)
-					
+				createXLine(gridGroup, configData);
+				createYLine(gridGroup, configData);
 
+				createAddChartButton(gridGraph, configData);
 				
+
+				addBarChart(gridGraph, configData);
 			}
 
 		</script>
