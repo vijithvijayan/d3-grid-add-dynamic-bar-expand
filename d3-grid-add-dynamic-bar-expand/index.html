@@ -2,37 +2,38 @@
 	<head>
 		<script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 		<script>
-			var barWidth = 100, barHeight = 100;
-			var leftMargin = 30, bottomMargin = 50;
+			
+			var leftMargin, bottomMargin, topMargin, rightMargin;
 			var gridGraph;
-			var canvasWidth = 700, canvasHeight = 400, spaceBetweenBars = 10;
-
+			var canvasWidth, canvasHeight;
+			var maxDiscount, minDiscount, stepDiscount, barDays, pixelPerDay, spaceBetweenBars;
+			var barCanvasWidth, barCanvasHeight;
 			
 
 			function getXPercentOfY(x, y){
 				return (x/100*y);
 			}
 
-			function addPlusSign(addNewBarObj) {
-				var fivePercentOfWidth = getXPercentOfY(5, canvasWidth);
+			function addPlusSign(addNewBarObj, centerXOfAddButton) {
+				
 				var circleMargin = 10;
 
 				addNewBarObj.append("line")
-					.attr("x1", canvasWidth - fivePercentOfWidth)
+					.attr("x1", centerXOfAddButton)
 					.attr("y1", canvasHeight/2 - circleMargin)
-					.attr("x2", canvasWidth - fivePercentOfWidth)
+					.attr("x2", centerXOfAddButton)
 					.attr("y2", canvasHeight/2 + circleMargin)
 					.style('stroke',  '#fff')
 					.attr('stroke-width',2);
 
 
 			    addNewBarObj.append("line")
-					.attr("x1", canvasWidth - fivePercentOfWidth - circleMargin)
+					.attr("x1", centerXOfAddButton - circleMargin)
 					.attr("y1", canvasHeight/2)
-					.attr("x2", canvasWidth - fivePercentOfWidth + circleMargin)
+					.attr("x2", centerXOfAddButton + circleMargin)
 					.attr("y2", canvasHeight/2)
-					.style('stroke',  '#fff')
-					.attr('stroke-width',2);
+					.style('stroke', '#fff')
+					.attr('stroke-width', 2);
 			}
 
 			function createAddChartButton(){
@@ -40,15 +41,15 @@
 					.attr('cursor', 'pointer')
 					.on("click", function(d) { addBarChart(); });
 
-				var fivePercentOfWidth = getXPercentOfY(5, canvasWidth)
+				var centerXOfAddButton = canvasWidth - getXPercentOfY(4, canvasWidth);
 
 				addNewBarObj.append('circle')
-						.attr('cx', canvasWidth - fivePercentOfWidth)
+						.attr('cx', centerXOfAddButton)
 						.attr('cy', canvasHeight/2)
-						.attr('r', 20)
+						.attr('r', 16)
 						.attr('fill', "#129793");
 
-				addPlusSign(addNewBarObj)
+				addPlusSign(addNewBarObj, centerXOfAddButton);
 			}
 
 			function getNextBarXPosition(){
@@ -61,39 +62,55 @@
 
 				return nextRectStartx ? nextRectStartx : leftMargin;
 			}
+
+			function getNextBarDiscount() {
+				var discount = 30;
+
+				gridGraph.selectAll('g.rectGroup')
+				.each(function(d,i){
+					discount += 20;
+				});
+
+				return  discount > maxDiscount ? maxDiscount : discount; 
+			}
 			
 			function addBarChart(){
 
 				var rectStartX = getNextBarXPosition();
+				
+				var barWidth = barDays * pixelPerDay;
+
+				var barDiscount = getNextBarDiscount();
+				var barHeight = barCanvasHeight/100 * barDiscount;
 
 				var barsGroup = gridGraph.append('g')
 					.attr('class', 'rectGroup');
 
 				barsGroup.append('rect')
 					.attr('x', rectStartX)
-					.attr('y', canvasHeight-bottomMargin-barHeight)
+					.attr('y', canvasHeight - bottomMargin - barHeight)
 					.attr('width', barWidth)
 					.attr('height', barHeight)
 					.attr('fill', "#015C65")
 					.attr('opacity', "0.3");
 				
 				barsGroup.append("text")
-					.attr('x', rectStartX+barWidth/2)
-					.attr('y', canvasHeight - bottomMargin-barHeight/2)
+					.attr('x', rectStartX + barWidth/2)
+					.attr('y', canvasHeight - bottomMargin - barHeight/2)
 					.attr("font-family", "sans-serif")
 				    .attr("font-size", "12px")
 				    .attr("font-weight", "bold")
 				    .attr("fill", "white")
 					.attr("text-anchor", "middle")
-      				.text("-30%");
+      				.text("-"+barDiscount+"%");
 
 
       			var dragTopPointGroup = barsGroup.append("g");
-      			var config = {'x':rectStartX+barWidth/2, 'y':canvasHeight-bottomMargin-barHeight};
+      			var config = {'x':rectStartX + barWidth/2, 'y':canvasHeight - bottomMargin-barHeight};
       			createDragPoint(dragTopPointGroup, config, 'top');
 
       			var dragRightPointGroup = barsGroup.append("g");
-      			var config = {'x':rectStartX+barWidth, 'y':canvasHeight-bottomMargin};
+      			var config = {'x':rectStartX + barWidth, 'y':canvasHeight - bottomMargin};
       			createDragPoint(dragRightPointGroup, config, 'right');
 
 			}
@@ -102,11 +119,15 @@
 			function topDragResize(d) {
 					
 				/*reposition top dragger based on new mouse 'y' position based on canvas*/
-					var oldCoords = d3.select(this).datum();
-					var newTopDraggerYPosition = oldCoords.y - (oldCoords.y - d3.event.y) < 15 ? 15 : (oldCoords.y - (oldCoords.y - d3.event.y) > canvasHeight-bottomMargin ? canvasHeight-bottomMargin : oldCoords.y - (oldCoords.y - d3.event.y))
+				var oldCoords = d3.select(this).datum();
 
-					d3.select(this).attr('transform', "translate("+oldCoords.x+", "+(newTopDraggerYPosition)+")")
-					.data([{'x':oldCoords.x, 'y':newTopDraggerYPosition}]);
+				var maxYDiscount = canvasHeight - (getXPercentOfY(maxDiscount, barCanvasHeight) + bottomMargin);
+				var minYDiscount = canvasHeight - (getXPercentOfY(minDiscount, barCanvasHeight) + bottomMargin);
+
+				var newTopDraggerYPosition = d3.event.y < maxYDiscount ? maxYDiscount : (d3.event.y > minYDiscount ? minYDiscount : d3.event.y)
+
+				d3.select(this).attr('transform', "translate("+oldCoords.x+", "+(newTopDraggerYPosition)+")")
+				.data([{'x':oldCoords.x, 'y':newTopDraggerYPosition}]);
 		      	
 		      	var rect = d3.select(this.parentNode).select('rect');
 		      	var rectHeight = canvasHeight-bottomMargin - newTopDraggerYPosition;
@@ -114,8 +135,14 @@
 		      	rect.attr('y', newTopDraggerYPosition)
 		      	.attr('height', rectHeight);
 
+		      	var newDiscount = parseInt(rectHeight/barCanvasHeight*100);
+		      	var textTopPadding = 4;
 		      	var text = d3.select(this.parentNode).select('text');
-		      	text.attr('y', canvasHeight-bottomMargin - rectHeight/2);
+
+		      	text.attr('y', canvasHeight-bottomMargin - Math.round(rectHeight/2) + textTopPadding);
+		      	if(newDiscount%stepDiscount == 0){
+		      		text.text("-"+newDiscount+"%");
+		      	}
 			}
 
 			function adjustNextRectGroup(thisRef, newRightDraggerXPosition) {
@@ -141,13 +168,12 @@
 
 			function rightDragResize(d) {
 				
-				var tenPercentOfWidth = getXPercentOfY(10, canvasWidth);
 				var rect = d3.select(this.parentNode).select('rect');
 				var rectStartX = parseInt(rect.attr('x'));
 
 				/*reposition right dragger based on new mouse position based on canvas*/
 				var oldCoords = d3.select(this).datum();
-				var newRightDraggerXPosition = (d3.event.x < rectStartX) ? rectStartX : (d3.event.x > canvasWidth-tenPercentOfWidth ? canvasWidth-tenPercentOfWidth : d3.event.x );
+				var newRightDraggerXPosition = (d3.event.x < rectStartX) ? rectStartX : (d3.event.x > canvasWidth-rightMargin ? canvasWidth-rightMargin : d3.event.x );
 
 				d3.select(this).attr('transform', "translate(" + newRightDraggerXPosition + ", " + oldCoords.y + ")")
 		        .data([{"x":newRightDraggerXPosition, "y":oldCoords.y}]);
@@ -177,61 +203,49 @@
 
 			}
 			
+			function addArrowSign(dragPointObj, dragPointType, arrowType) {
+				var arc = d3.svg.symbol().type(arrowType)
+						.size(30);
+				var translateXY = arrowType == 'triangle-up' ? -5 : 5;
+
+				var dragPointTransform = dragPointType == 'top' ? "translate(0, "+(translateXY)+")" : "translate("+(translateXY)+", 0) rotate(-90)";
+				
+				dragPointObj.append('path')
+					.attr('d', arc)
+					.attr('fill', "#fff")
+					.attr('stroke','#fff')
+					.attr('stroke-width', 1)
+					.attr('transform', dragPointTransform)
+					.attr("cursor", (dragPointType == 'top' ? "n-resize" : 'e-resize'));
+
+			}
 
 			function createDragPoint(dragPointObj, config, type) {
 
-				var dragTop = d3.behavior.drag()
-					.origin(function() { 
-			            var t = d3.select(this);
-            			return {x: d3.transform(t.attr("transform")).translate[0],
-                    			y: d3.transform(t.attr("transform")).translate[1]};
-			        })
-				    .on("drag", topDragResize);
+				var resizeHandler = type == 'top' ? topDragResize : rightDragResize;
 
-				var dragLeft = d3.behavior.drag()
-					.origin(function() { 
-			            var t = d3.select(this);
-            			return {x: d3.transform(t.attr("transform")).translate[0],
-                    			y: d3.transform(t.attr("transform")).translate[1]};
-			        })
-				    .on("drag", rightDragResize);
+				var dragBehaviour = d3.behavior.drag()
+					.origin(function () {
+						var t = d3.select(this);
+						return {x: d3.transform(t.attr("transform")).translate[0],
+			        			y: d3.transform(t.attr("transform")).translate[1]};
+					})
+				    .on("drag", resizeHandler);
 
 				dragPointObj.attr('transform', "translate("+config.x+", "+config.y+")")
 				.attr('class', type)
 				.data([{"x":config.x,"y":config.y}])
-				.call(type == 'top' ? dragTop : dragLeft);
+				.call(dragBehaviour);
 
 				dragPointObj.append("circle")
-	      				.attr('cx', 0)
-						.attr('cy', 0)
-						.attr('r', 15)
-						.attr('fill', "#129793")
-						.attr("cursor", (type == 'top' ? "n-resize" : 'e-resize'));
+      				.attr('cx', 0)
+					.attr('cy', 0)
+					.attr('r', 12)
+					.attr('fill', "#129793")
+					.attr("cursor", (type == 'top' ? "n-resize" : 'e-resize'));
 						
-					var arc = d3.svg.symbol().type('triangle-up')
-							.size(40);
-
-					var dragPointTransform = type == 'top' ? "translate(0, "+(-6)+")" : "translate("+(-6)+", 0) rotate(-90)";
-					dragPointObj.append('path')
-						.attr('d', arc)
-						.attr('fill', "#fff")
-						.attr('stroke','#fff')
-						.attr('stroke-width', 1)
-						.attr('transform', dragPointTransform)
-						.attr("cursor", (type == 'top' ? "n-resize" : 'e-resize'));
-
-
-					var arc = d3.svg.symbol().type('triangle-down')
-							.size(40);
-
-					dragPointTransform = type == 'top' ? "translate(0, "+(6)+")" : "translate("+(6)+", 0) rotate(-90)";
-					dragPointObj.append('path')
-						.attr('d', arc)
-						.attr('fill', "#fff")
-						.attr('stroke','#fff')
-						.attr('stroke-width', 1)
-						.attr('transform', dragPointTransform)
-						.attr("cursor", (type == 'top' ? "n-resize" : 'e-resize'));
+				addArrowSign(dragPointObj, type, 'triangle-up');
+				addArrowSign(dragPointObj, type, 'triangle-down');
 
 			}
 			
@@ -254,44 +268,67 @@
 				  .append("line");
 			}
 
-			function createXLine(gridGroup, spacing) {
-				var xaxiscoorddata = d3.range(spacing, canvasWidth, spacing);
+			function createGridLine(gridGroup, type, spacing) {
+				var endVal = type == 'vertical' ? canvasWidth : canvasHeight;
 
-				var lineObj = getGridLineObj(gridGroup, xaxiscoorddata, 'vertical');
+				var axisCoordData = d3.range(spacing, endVal, spacing);
 
-				lineObj.attr("x1", function(d){return d;})
-				  .attr("y1", spacing)
-				  .attr("x2", function(d){return d;})
-				  .attr("y2", canvasHeight-spacing);
+				var lineObj = getGridLineObj(gridGroup, axisCoordData, type);
+				
+				if(type == 'vertical')
+				{
+					lineObj.attr("x1", function(d){return d;})
+					  .attr("y1", spacing)
+					  .attr("x2", function(d){return d;})
+					  .attr("y2", canvasHeight-spacing);
+				}
+				else if(type == 'horizontal')
+				{
+					lineObj.attr("x1", spacing)
+					  .attr("y1", function(d){return d;})
+					  .attr("x2", canvasWidth-spacing)
+					  .attr("y2", function(d){return d;});
+				}
 
-				setGridLineStyle(lineObj, xaxiscoorddata);
+				setGridLineStyle(lineObj, axisCoordData);
 			}
 
-			function createYLine(gridGroup, spacing){
-				
-				var yaxiscoorddata = d3.range(spacing, canvasHeight, spacing);
+			
 
-				var lineObj = getGridLineObj(gridGroup, yaxiscoorddata, 'horizontal');
+			function initBoundaries() {
 
-				  lineObj.attr("x1", spacing)
-				  .attr("y1", function(d){return d;})
-				  .attr("x2", canvasWidth-spacing)
-				  .attr("y2", function(d){return d;});
+				canvasWidth = 700;
+				canvasHeight = 400;
+				spaceBetweenBars = 10;
+			
+				leftMargin = getXPercentOfY(4, canvasWidth);
+				rightMargin = getXPercentOfY(8, canvasWidth);
+				bottomMargin = getXPercentOfY(7, canvasWidth); 
+				topMargin = getXPercentOfY(3, canvasWidth); 
 
-				setGridLineStyle(lineObj, yaxiscoorddata);
+				barCanvasWidth = canvasWidth - leftMargin - rightMargin; 
+				barCanvasHeight = canvasHeight - bottomMargin - topMargin;
+
+				minDiscount = 10;
+				maxDiscount = 80;
+				stepDiscount = 5;
+				barDays = 30;
+				pixelPerDay = 3;
+
 			}
 
 			window.onload = function drawChart(){
-				
-				 gridGraph = d3.select("#d3grid")
+				initBoundaries();
+
+				gridGraph = d3.select("#d3grid")
 				    .append("svg")
 				    .attr("width", canvasWidth)    
 				    .attr("height", canvasHeight); 
 
 				var gridGroup = gridGraph.append('g')
 
-				createXLine(gridGroup, 5);
-				createYLine(gridGroup, 5);
+				createGridLine(gridGroup, 'vertical', 5);
+				createGridLine(gridGroup, 'horizontal', 5);
 
 				createAddChartButton();
 				
@@ -301,6 +338,7 @@
 
 		</script>
 	</head>
+
 	<body>
 		<div id="d3grid"></div>
 	</body>
