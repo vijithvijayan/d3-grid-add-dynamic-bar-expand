@@ -1,10 +1,10 @@
 <html>
 	<head>
-		<script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+		<script src="d3.v3.min.js" charset="utf-8"></script>
 		<script>
 			
 			var leftMargin, bottomMargin, topMargin, rightMargin;
-			var gridGraph;
+			var gridGraph, animationDuration;
 			var canvasWidth, canvasHeight;
 			var maxDiscount, minDiscount, stepDiscount, barDays, pixelPerDay, spaceBetweenBars;
 			var barCanvasWidth, barCanvasHeight;
@@ -36,19 +36,23 @@
 					.attr('stroke-width', 2);
 			}
 
+			function addCircle(containerObj, config) {
+				return containerObj.append('circle')
+						.attr('cx', config.cx)
+						.attr('cy', config.cy)
+						.attr('r', config.r)
+						.attr('fill', config.fill);
+			}
+
 			function createAddChartButton(){
 				var addNewBarObj = gridGraph.append('g')
 					.attr('cursor', 'pointer')
 					.on("click", function(d) { addBarChart(); });
 
 				var centerXOfAddButton = canvasWidth - getXPercentOfY(4, canvasWidth);
-
-				addNewBarObj.append('circle')
-						.attr('cx', centerXOfAddButton)
-						.attr('cy', canvasHeight/2)
-						.attr('r', 16)
-						.attr('fill', "#129793");
-
+				
+				var circleObj = addCircle(addNewBarObj, {'cx':centerXOfAddButton, 'cy':(canvasHeight/2), 'r':16, 'fill':"#129793"});
+				
 				addPlusSign(addNewBarObj, centerXOfAddButton);
 			}
 
@@ -63,6 +67,21 @@
 				return nextRectStartx ? nextRectStartx : leftMargin;
 			}
 
+			function getNextBarDateRange(){
+				var startDate = new Date();
+				var endDate = new Date(new Date(startDate).setDate(startDate.getDate() + 30)); 
+
+				gridGraph.selectAll('g.rectGroup')
+				.each(function(d,i){
+					var barDateRange = d3.select(this).select('text.enddate').datum();
+					startDate = barDateRange.end;
+					console.log(startDate)
+					endDate = new Date(new Date(startDate).setDate(startDate.getDate() + 30)); 
+				});
+
+				return {'start':startDate, 'end':endDate};
+			}
+
 			function getNextBarDiscount() {
 				var discount = 30;
 
@@ -73,44 +92,96 @@
 
 				return  discount > maxDiscount ? maxDiscount : discount; 
 			}
+
+			function addTextNode(containerObj, x, y) {
+				return containerObj.append("text")
+					.attr('x', x)
+					.attr('y', y)
+					.attr("font-family", "sans-serif")
+					.attr("text-anchor", "middle")
+			}
+
+			function formatDate(date) {
+				var n = date.toDateString();
+				var y = n.split(" ");
+				return y[1] + " " + y[2]
+			}
 			
 			function addBarChart(){
-
-				var rectStartX = getNextBarXPosition();
+				
+				var barStartX = getNextBarXPosition();
 				
 				var barWidth = barDays * pixelPerDay;
 
 				var barDiscount = getNextBarDiscount();
 				var barHeight = barCanvasHeight/100 * barDiscount;
 
+				var barDateRange = getNextBarDateRange();
+
 				var barsGroup = gridGraph.append('g')
 					.attr('class', 'rectGroup');
 
-				barsGroup.append('rect')
-					.attr('x', rectStartX)
+				
+				var newBar = barsGroup.append('rect')
+					.attr('x', barStartX)
+					.attr('y', canvasHeight - bottomMargin - barHeight/2)
+					.attr('width', barWidth/2)
+					.attr('height', barHeight/2)
+					.attr('fill', "#015C65")
+					.attr('opacity', "0.3");
+
+				newBar.transition()
 					.attr('y', canvasHeight - bottomMargin - barHeight)
 					.attr('width', barWidth)
 					.attr('height', barHeight)
-					.attr('fill', "#015C65")
-					.attr('opacity', "0.3");
+					.duration(animationDuration);
 				
-				barsGroup.append("text")
-					.attr('x', rectStartX + barWidth/2)
+
+				var discountTextNodeObj = addTextNode(barsGroup, (barStartX + barWidth/4), (canvasHeight - bottomMargin - barHeight/4) );
+
+				discountTextNodeObj.transition()
+					.attr('x', barStartX + barWidth/2)
 					.attr('y', canvasHeight - bottomMargin - barHeight/2)
-					.attr("font-family", "sans-serif")
-				    .attr("font-size", "12px")
+					.duration(animationDuration);
+
+				discountTextNodeObj.attr("font-size", "12px")
 				    .attr("font-weight", "bold")
 				    .attr("fill", "white")
-					.attr("text-anchor", "middle")
+					.attr("class", "discount")
       				.text("-"+barDiscount+"%");
 
+      			if(barStartX == leftMargin){
+      				var circleObj = addCircle(barsGroup, {'cx':barStartX, 'cy':(canvasHeight - bottomMargin), 'r':5, 'fill':"#129793"});
+      			
+
+	      			var startDateTextNodeObj = addTextNode(barsGroup, barStartX, (canvasHeight - bottomMargin + 20) );
+	      			startDateTextNodeObj.attr("font-size", "10px")
+					    .attr("font-weight", "bold")
+					    .attr("fill", "#000")
+						.attr("class", "startdate")
+	      				.text(formatDate(barDateRange.start));
+      			}
+
+      			var endDateTextNodeObj = addTextNode(barsGroup, (barStartX + barWidth/2), (canvasHeight - bottomMargin + 20) );
+      			
+      			endDateTextNodeObj.transition()
+	      			.attr('x', barStartX + barWidth)
+	      			.duration(animationDuration);
+
+      			endDateTextNodeObj.attr("font-size", "10px")
+				    .attr("font-weight", "bold")
+				    .attr("fill", "#000")
+					.attr("class", "enddate")
+      				.text(formatDate(barDateRange.end))
+      				.data([barDateRange]);
+
+
+      			var config = {'barStartX':barStartX, 'barWidth':barWidth, 'barHeight':barHeight};
 
       			var dragTopPointGroup = barsGroup.append("g");
-      			var config = {'x':rectStartX + barWidth/2, 'y':canvasHeight - bottomMargin-barHeight};
       			createDragPoint(dragTopPointGroup, config, 'top');
 
       			var dragRightPointGroup = barsGroup.append("g");
-      			var config = {'x':rectStartX + barWidth, 'y':canvasHeight - bottomMargin};
       			createDragPoint(dragRightPointGroup, config, 'right');
 
 			}
@@ -195,8 +266,19 @@
 
 
 		        /*reposition text horizontally centered*/
-		        var text = d3.select(this.parentNode).select('text');
-		      	text.attr('x', newTopDraggerXPosition);
+		        var discountText = d3.select(this.parentNode).select('text.discount');
+		      	discountText.attr('x', newTopDraggerXPosition);
+
+		      	var endDateText = d3.select(this.parentNode).select('text.enddate');
+		      	endDateText.attr('x', newRightDraggerXPosition);
+
+		      	if((newRightDraggerXPosition - rect.attr('x')) % pixelPerDay == 0){
+		      		var noOfDays = (newRightDraggerXPosition - rect.attr('x')) / pixelPerDay;
+		      		var startDate = new Date(endDateText.datum().start)
+		      		var endDate = new Date(new Date(startDate).setDate(startDate.getDate() + noOfDays)); 
+		      		endDateText.text(formatDate(endDate))
+		      		.data([{'start':endDateText.datum().start, 'end':endDate}]);
+		      	}
 
 
 		      	adjustNextRectGroup(this, newRightDraggerXPosition);
@@ -224,6 +306,10 @@
 
 				var resizeHandler = type == 'top' ? topDragResize : rightDragResize;
 
+				var xyBeforeTransition = type == 'top' ? {'x':config.barStartX + config.barWidth/4, 'y':canvasHeight - bottomMargin-config.barHeight/2} : {'x':config.barStartX + config.barWidth/2, 'y':canvasHeight - bottomMargin};
+
+				var xyAfterTransition = type == 'top' ? {'x':config.barStartX + config.barWidth/2, 'y':canvasHeight - bottomMargin-config.barHeight} : {'x':config.barStartX + config.barWidth, 'y':canvasHeight - bottomMargin};
+
 				var dragBehaviour = d3.behavior.drag()
 					.origin(function () {
 						var t = d3.select(this);
@@ -232,17 +318,17 @@
 					})
 				    .on("drag", resizeHandler);
 
-				dragPointObj.attr('transform', "translate("+config.x+", "+config.y+")")
+				dragPointObj.attr('transform', "translate("+xyBeforeTransition.x+", "+xyBeforeTransition.y+")")
 				.attr('class', type)
-				.data([{"x":config.x,"y":config.y}])
+				.data([{"x":xyBeforeTransition.x,"y":xyBeforeTransition.y}])
 				.call(dragBehaviour);
 
-				dragPointObj.append("circle")
-      				.attr('cx', 0)
-					.attr('cy', 0)
-					.attr('r', 12)
-					.attr('fill', "#129793")
-					.attr("cursor", (type == 'top' ? "n-resize" : 'e-resize'));
+				dragPointObj.transition()
+					.attr('transform', "translate("+xyAfterTransition.x+", "+xyAfterTransition.y+")")
+					.duration(animationDuration);
+
+				var circleObj = addCircle(dragPointObj, {'cx':0, 'cy':0, 'r':12, 'fill':"#129793"});
+					circleObj.attr("cursor", (type == 'top' ? "n-resize" : 'e-resize'));
 						
 				addArrowSign(dragPointObj, type, 'triangle-up');
 				addArrowSign(dragPointObj, type, 'triangle-down');
@@ -299,7 +385,8 @@
 
 				canvasWidth = 700;
 				canvasHeight = 400;
-				spaceBetweenBars = 10;
+				spaceBetweenBars = 5;
+				animationDuration = 1000;
 			
 				leftMargin = getXPercentOfY(4, canvasWidth);
 				rightMargin = getXPercentOfY(8, canvasWidth);
